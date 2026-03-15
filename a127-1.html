@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>a127 - 今彩 539 對獎器</title>
+    <style>
+        body { font-family: "Consolas", "Monaco", "Microsoft JhengHei", sans-serif; background: #eceff1; padding: 20px; }
+        .container { max-width: 1000px; margin: 0 auto; background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        h2 { color: #1e3799; border-bottom: 3px solid #4a69bd; padding-bottom: 10px; margin-top: 0; }
+        
+        .panel { display: flex; gap: 15px; margin-bottom: 20px; align-items: flex-end; }
+        .input-group { flex: 1; }
+        label { display: block; font-weight: bold; margin-bottom: 5px; color: #546e7a; }
+        input { width: 95%; padding: 8px; border: 2px solid #cfd8dc; border-radius: 4px; font-size: 14px; padding-right:15px;}
+        
+        .controls { display: flex; gap: 10px; margin-bottom: 20px; }
+        button { padding: 10px 20px; cursor: pointer; border: none; border-radius: 4px; font-weight: bold; transition: 0.2s; }
+        .btn-step { background: #38ada9; color: white; }
+        .btn-auto { background: #f6b93b; color: white; }
+        .btn-reset { background: #78909c; color: white; }
+        button:disabled { background: #b0bec5; cursor: not-allowed; }
+
+        .viz-area { display: flex; flex-direction: column; gap: 30px; margin: 30px 0; padding: 20px; background: #f8f9fa; border-radius: 8px; border: 1px solid #cfd8dc; }
+        .number-row { display: flex; align-items: center; gap: 20px; }
+        .row-label { width: 140px; font-weight: bold; color: #1e3799; font-size: 14px; }
+        .slots { display: flex; gap: 12px; }
+        .num-card { width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; border: 2px solid #cfd8dc; border-radius: 50%; font-size: 20px; font-weight: bold; background: white; transition: all 0.3s; position: relative; }
+        .active-outer { border-color: #38ada9; background: #e0f2f1; transform: scale(1.1); box-shadow: 0 0 10px rgba(56, 173, 169, 0.5); }
+        .active-inner { border-color: #f6b93b; background: #fff8e1; transform: scale(1.1); box-shadow: 0 0 10px rgba(246, 185, 59, 0.5); }
+        .match-success { background: #4caf50 !important; color: white !important; border-color: #2e7d32 !important; animation: bounce 0.5s ease; }
+        .match-fail { opacity: 0.5; }
+
+        .status-msg { background: #263238; color: #FFF; padding: 15px; border-radius: 4px; font-family: monospace; min-height: 24px; margin-bottom: 10px; line-height: 1.5; }
+        .code-hint { font-size: 14px; color: #546e7a; margin-top: 10px; padding: 10px; background: #f1f8e9; border-radius: 4px; white-space: pre; }
+        
+        @keyframes bounce {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>a127 - 今彩 539 對獎器</h2>
+    
+    <div class="panel">
+        <div class="input-group">
+            <label>開獎獎號 (5個):</label>
+            <input type="text" id="winInput" value="3 13 25 31 39">
+        </div>
+        <div class="input-group">
+            <label>Emery 的彩券 (5個):</label>
+            <input type="text" id="emeryInput" value="20 22 33 25 13">
+        </div>
+    </div>
+
+    <div class="controls">
+        <button class="btn-step" id="btnStep" onclick="run(false)">▶ 逐步執行</button>
+        <button class="btn-auto" id="btnAuto" onclick="run(true)">⏭ 全部執行</button>
+        <button class="btn-reset" onclick="resetSim()">↺ 重設</button>
+    </div>
+
+    <div class="status-msg" id="status">準備就緒，雙層迴圈已重設。</div>
+
+    <div class="viz-area">
+        <div class="number-row">
+            <div class="row-label">Emery 的號碼:</div>
+            <div class="slots" id="emerySlots"></div>
+        </div>
+        <div class="number-row">
+            <div class="row-label">開獎獎號:</div>
+            <div class="slots" id="winSlots"></div>
+        </div>
+    </div>
+
+    <div class="code-hint" id="codeHint">
+for mine in emery_numbers:
+    for prize in winning_numbers:
+        if mine == prize:
+            ans += 1
+    </div>
+</div>
+
+<script>
+    let outerIdx = 0;
+    let innerIdx = 0;
+    let winNums = [];
+    let emeryNums = [];
+    let ans = 0;
+    let phase = 'INIT';
+
+    function initDisplay() {
+        const eContainer = document.getElementById('emerySlots');
+        const wContainer = document.getElementById('winSlots');
+        eContainer.innerHTML = ''; 
+        wContainer.innerHTML = '';
+        
+        emeryNums = document.getElementById('emeryInput').value.trim().split(/\s+/);
+        winNums = document.getElementById('winInput').value.trim().split(/\s+/);
+
+        emeryNums.forEach((n, i) => {
+            const d = document.createElement('div');
+            d.className = 'num-card'; d.id = `e-${i}`; d.innerText = n;
+            eContainer.appendChild(d);
+        });
+        winNums.forEach((n, i) => {
+            const d = document.createElement('div');
+            d.className = 'num-card'; d.id = `w-${i}`; d.innerText = n;
+            wContainer.appendChild(d);
+        });
+    }
+
+    function resetSim() {
+        outerIdx = 0; innerIdx = 0; ans = 0; phase = 'INIT';
+        document.getElementById('status').innerText = "重設完成。";
+        document.getElementById('btnAuto').disabled = false;
+        document.getElementById('btnStep').disabled = false;
+        initDisplay();
+    }
+
+    async function run(auto = false) {
+        if (phase === 'INIT') {
+            initDisplay();
+            phase = 'RUNNING';
+        }
+        if (auto) {
+            document.getElementById('btnAuto').disabled = true;
+            while (outerIdx < emeryNums.length) {
+                executeNextStep();
+                await new Promise(r => setTimeout(r, 400));
+            }
+        } else {
+            executeNextStep();
+        }
+    }
+
+    function executeNextStep() {
+        if (outerIdx >= emeryNums.length) return;
+
+        document.querySelectorAll('.num-card').forEach(c => {
+            c.classList.remove('active-outer', 'active-inner');
+        });
+
+        const status = document.getElementById('status');
+        const hint = document.getElementById('codeHint');
+
+        let currentEmery = emeryNums[outerIdx];
+        let currentWin = winNums[innerIdx];
+
+        document.getElementById(`e-${outerIdx}`).classList.add('active-outer');
+        document.getElementById(`w-${innerIdx}`).classList.add('active-inner');
+
+        status.innerText = `比對 Emery 的號碼 ${currentEmery} 與獎號 ${currentWin}...`;
+        hint.innerHTML = `外層迴圈索引：${outerIdx}，內層迴圈索引：${innerIdx}\n目前判斷：<code>if ${currentEmery} == ${currentWin}:</code>`;
+
+        if (parseInt(currentEmery) === parseInt(currentWin)) {
+            ans++;
+            document.getElementById(`e-${outerIdx}`).classList.add('match-success');
+            document.getElementById(`w-${innerIdx}`).classList.add('match-success');
+            status.innerHTML = `中獎！${currentEmery} 等於 ${currentWin} (目前總計: ${ans})`;
+        }
+
+        // 移動索引
+        innerIdx++;
+        if (innerIdx >= winNums.length) {
+            innerIdx = 0;
+            outerIdx++;
+        }
+
+        if (outerIdx >= emeryNums.length) {
+            status.innerHTML = `對獎完成！總共進行了 ${emeryNums.length * winNums.length} 次比對，最終結果：<span style="color:#FFeb3b; font-size:22px;">${ans}</span>`;
+            document.getElementById('btnStep').disabled = true;
+            document.getElementById('btnAuto').disabled = true;
+        }
+    }
+
+    initDisplay();
+</script>
+</body>
+</html>
