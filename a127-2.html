@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>a127 - 今彩 539 對獎器</title>
+    <style>
+        body { font-family: "Consolas", "Monaco", "Microsoft JhengHei", sans-serif; background: #eceff1; padding: 20px; }
+        .container { max-width: 1000px; margin: 0 auto; background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        h2 { color: #1e3799; border-bottom: 3px solid #4a69bd; padding-bottom: 10px; margin-top: 0; }
+        
+        .panel { display: flex; gap: 15px; margin-bottom: 20px; align-items: flex-end; }
+        .input-group { flex: 1; }
+        label { display: block; font-weight: bold; margin-bottom: 5px; color: #546e7a; }
+        input { width: 95%; padding: 8px; border: 2px solid #cfd8dc; border-radius: 4px; font-size: 14px; padding-right:15px;}
+        
+        .controls { display: flex; gap: 10px; margin-bottom: 20px; }
+        button { padding: 10px 20px; cursor: pointer; border: none; border-radius: 4px; font-weight: bold; transition: 0.2s; }
+        .btn-auto { background: #f6b93b; color: white; }
+        .btn-step { background: #38ada9; color: white; }
+        .btn-reset { background: #78909c; color: white; }
+        button:disabled { background: #b0bec5; cursor: not-allowed; }
+
+        .array-table-wrapper { overflow-x: auto; margin-top: 20px; padding-bottom: 10px; }
+        .array-table { display: flex; border: 2px solid #37474f; width: max-content; }
+        .array-column { display: flex; flex-direction: column; width: 45px; }
+        .index-label { text-align: center; font-size: 12px; padding: 5px 0; color: #78909c; background: #f8f9fa; border-bottom: 1px solid #37474f; }
+        .data-cell { height: 45px; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: bold; border-right: 1px solid #cfd8dc; background: white; transition: all 0.3s; }
+        .array-column:last-child .data-cell { border-right: none; }
+
+        .cell-unused { background: #e0e0e0; color: #9e9e9e; }
+        .cell-marking { background: #fff176; }
+        .cell-has-win { background: #ffccbc; color: #e64a19; }
+        .cell-checking { background: #bbdefb; transform: scale(1.1); z-index: 5; }
+        .cell-match { background: #4CAF50; color: white; animation: bounce 0.5s ease; }
+        .cell-no-match { background: #cfd8dc; color: #90a4ae; }
+
+        .status-msg { background: #263238; color: #FFF; padding: 15px; border-radius: 4px; font-family: monospace; min-height: 24px; margin-bottom: 10px; }
+        .code-hint { font-size: 14px; color: #546e7a; margin-top: 10px; padding: 10px; background: #f1f8e9; border-radius: 4px; }
+        
+        @keyframes bounce {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>a127 - 今彩 539 對獎器</h2>
+    
+    <div class="panel">
+        <div class="input-group">
+            <label>開獎獎號 (5個):</label>
+            <input type="text" id="winInput" value="3 13 25 31 39">
+        </div>
+        <div class="input-group">
+            <label>Emery 的彩券 (5個):</label>
+            <input type="text" id="emeryInput" value="20 22 33 25 13">
+        </div>
+    </div>
+
+    <div class="controls">
+        <button class="btn-step" id="btnStep" onclick="run(false)">▶ 逐步執行</button>
+        <button class="btn-auto" id="btnAuto" onclick="run(true)">⏭ 全部執行</button>
+        
+        <button class="btn-reset" onclick="resetSim()">↺ 重設</button>
+    </div>
+
+    <div class="status-msg" id="status">準備就緒，列表 <code>win</code> 已初始化。</div>
+
+    <div class="array-table-wrapper">
+        <div class="array-table" id="arrayTable"></div>
+    </div>
+
+    <div class="code-hint" id="codeHint">
+        初始化：<code>win = [0] * 40</code>
+    </div>
+</div>
+
+<script>
+    let phase = 'INIT';
+    let winNums = [];
+    let emeryNums = [];
+    let subStep = 0;
+    let totalMatch = 0;
+
+    function initTable() {
+        const table = document.getElementById('arrayTable');
+        table.innerHTML = '';
+        for (let i = 0; i <= 39; i++) {
+            const col = document.createElement('div');
+            col.className = 'array-column';
+            col.innerHTML = `
+                <div class="index-label">[${i}]</div>
+                <div class="data-cell ${i === 0 ? 'cell-unused' : ''}" id="cell-${i}">
+                    ${i === 0 ? '0' : '0'}
+                </div>`;
+            table.appendChild(col);
+        }
+    }
+
+    function resetSim() {
+        phase = 'INIT'; subStep = 0; totalMatch = 0;
+        document.getElementById('status').innerText = "重設完成。";
+        document.getElementById('btnAuto').disabled = false;
+        document.getElementById('btnStep').disabled = false;
+        document.getElementById('codeHint').innerHTML = "初始化：<code>win = [0] * 40</code>";
+        initTable();
+    }
+
+    async function run(auto = false) {
+        if (phase === 'INIT') {
+            winNums = document.getElementById('winInput').value.trim().split(/\s+/).map(Number);
+            emeryNums = document.getElementById('emeryInput').value.trim().split(/\s+/).map(Number);
+            phase = 'MARK_WIN';
+        }
+        if (auto) {
+            while (phase !== 'END') {
+                executeNextStep();
+                await new Promise(r => setTimeout(r, 600));
+            }
+        } else {
+            executeNextStep();
+        }
+    }
+
+    function executeNextStep() {
+        const status = document.getElementById('status');
+        const hint = document.getElementById('codeHint');
+
+        if (phase === 'MARK_WIN') {
+            if (subStep < winNums.length) {
+                let n = winNums[subStep];
+                const cell = document.getElementById(`cell-${n}`);
+                cell.classList.add('cell-has-win');
+                cell.innerText = '1';
+                status.innerText = `獎號 ${n} 出現，將 win[${n}] 設為 1`;
+                hint.innerHTML = `執行：<code>win[${n}] = 1</code>`;
+                subStep++;
+            } else {
+                phase = 'CHECK_TICKET';
+                subStep = 0;
+                status.innerText = `獎號標記完成，準備開始累加 Emery 的號碼...`;
+            }
+        } else if (phase === 'CHECK_TICKET') {
+            if (subStep < emeryNums.length) {
+                let m = emeryNums[subStep];
+                const cell = document.getElementById(`cell-${m}`);
+                let val = parseInt(cell.innerText === 'X' ? 0 : cell.innerText);
+                
+                document.querySelectorAll('.data-cell').forEach(c => c.classList.remove('cell-checking'));
+                cell.classList.add('cell-checking');
+
+                totalMatch += val;
+                
+                if (val === 1) {
+                    cell.classList.replace('cell-checking', 'cell-match');
+                    status.innerText = `號碼 ${m} 在列表 win 中為 1，加到總分！`;
+                } else {
+                    cell.classList.replace('cell-checking', 'cell-no-match');
+                    status.innerText = `號碼 ${m} 在列表 win 中為 0，加 0 不變。`;
+                }
+                
+                hint.innerHTML = `累加：<code>ans += win[${m}]</code> (目前 ans = ${totalMatch})`;
+                subStep++;
+            } else {
+                phase = 'END';
+            }
+        }
+
+        if (phase === 'END') {
+            status.innerHTML = `對獎完成！<code>ans</code> 的最終結果為：<span style="color:#FFeb3b; font-size:22px;">${totalMatch}</span>`;
+            document.getElementById('btnStep').disabled = true;
+            document.getElementById('btnAuto').disabled = true;
+        }
+    }
+
+    initTable();
+</script>
+</body>
+</html>
